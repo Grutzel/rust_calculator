@@ -1,0 +1,9 @@
+[package]
+name = "untitled"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = "0.13.1"
+magic = "0.16.2"
+regex = "1.11.1"
