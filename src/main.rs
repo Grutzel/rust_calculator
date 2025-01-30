@@ -18,7 +18,22 @@ pub fn main() { // -> iced::Result {
     println!("{:?}", equation);
     println!("expr: {:?}", expr.evaluate());
 }
+
+fn is_float(s: String) -> bool {
+    s.parse::<f64>().is_ok()
+}
 //TODO: create a function, that takes a vec and creates a Expr
+fn create_ast(equation: &mut Vec<String>) -> Expr {
+    if !is_float(equation[0].to_string()) {
+        equation.insert(0, String::from("0.0"));
+    }
+    let mut last_float: bool = false;
+    for part in equation.iter() {
+        if is_float(part.to_string()) & last_float {
+            panic!("Two number in a row, no calculation possible.")
+        }
+    };
+}
 
 #[derive(Default)]
 struct Counter {
