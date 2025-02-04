@@ -1,7 +1,8 @@
-
+use std::any::Any;
+use iced::keyboard::key::{Code, Named};
 use iced::widget::{button, column, text, Column, text_input, checkbox, row, Row};
 use iced::{Center, Element, Fill, Font, Subscription, Task as Command};
-use iced::keyboard::{self, KeyCode};
+use iced::keyboard::{self, key, Key};
 use iced::border::left;
 
 pub fn main() -> iced::Result {
@@ -65,7 +66,7 @@ enum Message {
     Clear,
     Remove,
     Calculate,
-    KeyPressed(KeyCode)
+    KeyPressed(Key),
 }
 
 impl Calculator {
@@ -141,7 +142,7 @@ impl Calculator {
                 self.new_op('/')
             }
             Message::InputChanged(new_value) => {
-                match new_value.chars().last().unwrap() {
+                match new_value.chars().last().expect("No backspace") {
                     '.' => { self.input_value = new_value.to_string(); return;},
                     ',' => {
                         let new_value = new_value.replace(",", ".");
@@ -166,11 +167,20 @@ impl Calculator {
             Message::Calculate => {
                 self.calculate();
             }
-            Message::KeyPressed(KeyCode::Delete) => {
-                self.equation.left.pop();
+            Message::KeyPressed(pressed_key) => {
+                if let key::Key::Named(Named::Delete) = pressed_key {
+                    println!("delete")
+                }
+                // self.equation.left.pop();
             }
+            _ => {println!("{:?}", self.input_value);}
 
         }
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        // Listen for key presses
+        keyboard::on_key_press(|key, _modifiers| Some(Message::KeyPressed(key)))
     }
 
     fn view(&self) -> Column<Message> {
