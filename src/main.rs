@@ -1,74 +1,57 @@
 
-use iced::widget::{button, column, text, Column, text_input};
+use iced::widget::{button, column, text, Column, text_input, checkbox, row, Row};
 use iced::{Center, Element, Fill, Font, Subscription, Task as Command};
-use iced::widget::shader::wgpu::naga::Expression;
-use iced::widget::shader::wgpu::naga::MathFunction::Exp;
-use regex::Regex;
+use iced::keyboard::{self, KeyCode};
+use iced::border::left;
 
-pub fn main() { // -> iced::Result {
-    // iced::run("A cool counter", Counter::update, Counter::view)
-    let equation = vec![String::from("3.3"),
-                        String::from("+"),
-                        String::from("3.3")];
-    let mut expr = Expr::BinaryOp {
-        op: '+',
-        left: Box::new(Expr::Number(3.3)),
-        right: Box::new(Expr::Number(3.3)),
-    };
-    println!("{:?}", equation);
-    println!("expr: {:?}", expr.evaluate());
+pub fn main() -> iced::Result {
+    iced::run("A cool Calculator", Calculator::update, Calculator::view)
+    /*let mut equation = String::from("3.3-3.3*3.3-3.3");
+    let mut equation_struct:
+    */
+
 }
 
-fn is_float(s: String) -> bool {
-    s.parse::<f64>().is_ok()
-}
-//TODO: create a function, that takes a vec and creates a Expr
-fn create_ast(equation: &mut Vec<String>) -> Expr {
-    if !is_float(equation[0].to_string()) {
-        equation.insert(0, String::from("0.0"));
-    }
-    let mut last_float: bool = false;
-    for part in equation.iter() {
-        if is_float(part.to_string()) & last_float {
-            panic!("Two number in a row, no calculation possible.")
-        }
-    };
-}
 
 #[derive(Default)]
-struct Counter {
-    equation: Vec<String>,
+struct Calculator {
+    equation: Equation,
     input_value: String,
-    number: String,
-    result: String,
+    calculated: bool,
 }
 
-#[derive(Debug)]
-enum Expr {
-    Number(f64),
-    BinaryOp {
-        op: char,
-        left: Box<Expr>,
-        right: Box<Expr>,
-    },
+#[derive(Debug, Clone)]
+struct Equation {
+    left: String,
+    right: String,
+    op: String,
+    result: f64,
+    full_equation: String,
 }
 
-impl Expr {
-    fn evaluate(&mut self) -> f64 {
-        match self {
-            Expr::Number(n) => *n,
-            Expr::BinaryOp { op, left, right } => {
-                let left_val = left.evaluate();
-                let right_val = right.evaluate();
-                match op {
-                    '+' => left_val + right_val,
-                    '-' => left_val - right_val,
-                    '*' => left_val * right_val,
-                    '/' => left_val / right_val,
-                    _ => panic!("Unknown operator"),
-                }
-            }
+impl Default for Equation {
+    fn default() -> Self {
+        Equation {
+            left: "".to_string(),
+            right: "".to_string(),
+            op: "".to_string(),
+            result: 0.0,
+            full_equation: "".to_string(),
         }
+    }
+}
+impl Equation {
+    fn new() -> Self {
+        Equation {
+            left: "".to_string(),
+            right: "".to_string(),
+            op: "+".to_string(),
+            result: 0.0,
+            full_equation: "".to_string(),
+        }
+    }
+    fn evaluate(&self) -> f64 {
+        self.result
     }
 }
 
@@ -77,73 +60,139 @@ enum Message {
     InputChanged(String),
     Add,
     Subtract,
+    Multiply,
+    Divide,
     Clear,
     Remove,
-    Calculate
+    Calculate,
+    KeyPressed(KeyCode)
 }
 
-impl Counter {
-    fn add(&mut self) {
-        self.equation.push(self.number.clone());
-        self.equation.push("+".to_string())
+impl Calculator {
+    fn new_op(&mut self, op: char) {
+        self.equation.op = op.to_string();
+        if self.equation.full_equation.len() == 0 {
+            match self.input_value.parse::<f64>() {
+                Ok(value) => {
+                    self.equation.result=value;
+                    self.equation.full_equation.push_str(value.to_string().as_str());
+                }
+                Err(_) => {println!("Error parsing input value");}
+            }
+        }
+        else {
+            match self.equation.full_equation.chars().last().unwrap() {
+                '+' | '-' | '*' | '/' => {
+                    if self.input_value.is_empty() {
+                        return;
+                    } else {
+                        self.calculate();
+                    }},
+                _ => {println!("{}", self.input_value);}
+            }
+        }
+        self.equation.full_equation.push(op);
+        self.input_value = "".to_string();
     }
 
-    fn subtract(&mut self) {
-        self.equation.push(self.number.clone());
-        self.equation.push("-".to_string())
-    }
-
-    fn create_calc_tree(&mut self) {
-
+    fn calculate(&mut self) {
+        if !self.calculated {
+            match self.input_value.parse::<f64>() {
+                Ok(value) => {
+                    println!("Calculating value: {}", value);
+                    println!("Operator: {}", self.equation.op);
+                    self.equation.result = match self.equation.full_equation.chars().last().unwrap() {
+                        '+' => { self.equation.result + value },
+                        '-' => { self.equation.result + -value },
+                        '*' => { self.equation.result * value },
+                        '/' => { self.equation.result / value },
+                        _ => {
+                            println!("Unknown op: {}", self.equation.op);
+                            0.0
+                        },
+                    };
+                },
+                Err(_) => { println!("Something is wrong with the given number {}.", self.input_value); },
+            }
+            self.calculated = true;
+            self.equation.full_equation.push_str(self.input_value.as_str());
+        }
+        else {
+            println!("Already calculated");
+        }
     }
 
     fn update(&mut self, message: Message) {
         match message {
             Message::Clear => {
-                self.equation = Vec::new();
+                self.equation = Equation::default();
+                self.input_value = "".to_string();
             }
             Message::Add => {
-                self.add()
+                self.new_op('+')
             }
             Message::Subtract => {
-                self.subtract()
+                self.new_op('-')
+            }
+            Message::Multiply => {
+                self.new_op('*')
+            }
+            Message::Divide => {
+                self.new_op('/')
             }
             Message::InputChanged(new_value) => {
-                match new_value.parse::<u8>() {
-                    Ok(new_value) => {self.number.push_str(new_value.to_string().as_str());
-                    return;},
+                match new_value.chars().last().unwrap() {
+                    '.' => { self.input_value = new_value.to_string(); return;},
+                    ',' => {
+                        let new_value = new_value.replace(",", ".");
+                        self.input_value = new_value.to_string(); return;},
+                    '+' | '-' | '*' | '/' => {
+                        self.new_op(new_value.chars().last().unwrap());
+                        return;
+                    },
+                    _ => {}
+                }
+
+                match new_value.parse::<f64>() {
+                    Ok(new_value) => {
+                        self.input_value = new_value.to_string();
+                        self.calculated = false;
+                        return;},
                     Err(_) => {println!("The value could not be parsed as a number.");},
                 }
-                if new_value.trim() == '+'.to_string() {
-                    self.add()
-                } else if new_value.trim() == " - ".to_string() {
-                    self.subtract()
-                } else if new_value.trim() == '.'.to_string() {
-                    self.number.push_str(".");
-                }
             } Message::Remove => {
-                self.equation.pop();
+                self.equation.left.pop();
             }
             Message::Calculate => {
-                self.create_calc_tree()
+                self.calculate();
+            }
+            Message::KeyPressed(KeyCode::Delete) => {
+                self.equation.left.pop();
             }
 
         }
     }
 
     fn view(&self) -> Column<Message> {
-        let input = text_input(" ", &*self.input_value)
-            .on_input(Message::InputChanged).padding(5);
+        let input = text_input("", &self.input_value)
+            .on_input(Message::InputChanged).on_submit(Message::Calculate);
+        let button_row = Row::new().spacing(20)
+            .push(button("+").on_press(Message::Add))
+            .push(button("-").on_press(Message::Subtract))
+            .push(button("*").on_press(Message::Multiply))
+            .push(button("/").on_press(Message::Divide));
+        let settings_row = Row::new().spacing(20)
+            .push(button("clear").on_press(Message::Clear))
+            .push(button("Remove").on_press(Message::Remove))
+            .push(button("calc").on_press(Message::Calculate));
         column![
             text("calculator").width(Fill).align_x(Center),
-            text(self.equation.join("")).align_x(Center),
-            text(self.result.clone()).align_x(Center),
+            text(self.equation.full_equation.clone()).align_x(Center),
+            text(self.equation.result.clone()).align_x(Center),
             input,
-            button("+").on_press(Message::Add),
-            button("-").on_press(Message::Subtract),
-            button("clear").on_press(Message::Clear),
-            button("remove").on_press(Message::Remove),
-            button("calc").on_press(Message::Calculate),
+            button_row,
+            settings_row,
+            checkbox("Toggle me", self.calculated.clone()),
         ]
     }
 }
