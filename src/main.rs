@@ -19,6 +19,7 @@ struct Calculator {
     equation: Equation,
     input_value: String,
     calculated: bool,
+    last_dot: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -65,8 +66,7 @@ enum Message {
     Divide,
     Clear,
     Remove,
-    Calculate,
-    KeyPressed(Key),
+    Calculate
 }
 
 impl Calculator {
@@ -95,6 +95,7 @@ impl Calculator {
         self.equation.full_equation.push(op);
         self.input_value = "".to_string();
     }
+.
 
     fn calculate(&mut self) {
         if !self.calculated {
@@ -142,22 +143,36 @@ impl Calculator {
                 self.new_op('/')
             }
             Message::InputChanged(new_value) => {
-                match new_value.chars().last().expect("No backspace") {
-                    '.' => { self.input_value = new_value.to_string(); return;},
+                if new_value.is_empty() {
+                    self.input_value = "".to_string();
+                    return;
+                }
+                match new_value.chars().last().expect("new_value is {new_value}:") {
+                    '.' => {
+                        self.input_value = new_value.to_string();
+                        self.last_dot = true;
+                        return;},
                     ',' => {
                         let new_value = new_value.replace(",", ".");
-                        self.input_value = new_value.to_string(); return;},
+                        self.input_value = new_value.to_string();
+                        self.last_dot = true;
+                        return;},
                     '+' | '-' | '*' | '/' => {
                         self.new_op(new_value.chars().last().unwrap());
                         return;
                     },
                     _ => {}
                 }
-
+                if self.last_dot & (new_value.chars().last().unwrap() == '0') {
+                    self.input_value = new_value.to_string();
+                    return;
+                }
+                println!("Input value: {}", new_value);
                 match new_value.parse::<f64>() {
                     Ok(new_value) => {
                         self.input_value = new_value.to_string();
                         self.calculated = false;
+                        self.last_dot = false;
                         return;},
                     Err(_) => {println!("The value could not be parsed as a number.");},
                 }
@@ -167,21 +182,11 @@ impl Calculator {
             Message::Calculate => {
                 self.calculate();
             }
-            Message::KeyPressed(pressed_key) => {
-                if let key::Key::Named(Named::Delete) = pressed_key {
-                    println!("delete")
-                }
-                // self.equation.left.pop();
-            }
             _ => {println!("{:?}", self.input_value);}
 
         }
     }
 
-    fn subscription(&self) -> Subscription<Message> {
-        // Listen for key presses
-        keyboard::on_key_press(|key, _modifiers| Some(Message::KeyPressed(key)))
-    }
 
     fn view(&self) -> Column<Message> {
         let input = text_input("", &self.input_value)
